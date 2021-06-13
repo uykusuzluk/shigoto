@@ -77,7 +77,7 @@ func (s *Shigoto) Queue(job Runner, queue string) error {
 }
 
 func (s *Shigoto) ListenQueue(queue string, workers int) error {
-	listener, err := newListener(queue, 10, s)
+	listener, err := newListener(queue, workers, s)
 	if err != nil {
 		return err
 	}
