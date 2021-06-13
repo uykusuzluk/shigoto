@@ -87,6 +87,7 @@ func (s *Shigoto) ListenQueue(queue string, workers int) error {
 }
 
 func (s *Shigoto) Register(j Runner) error {
+	s.log.Println("register: type of runner is: ", reflect.TypeOf(j).String())
 	jobContainer[reflect.TypeOf(j).String()] = j
 	return nil
 }
