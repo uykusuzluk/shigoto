@@ -10,7 +10,7 @@ type TestJob struct {
     Value int
 }
 
-func (t *TestJob) Run() {
+func (t *TestJob) Run() error {
     // ...
 }
 

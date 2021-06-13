@@ -3,8 +3,6 @@ package shigoto
 import (
 	"encoding/json"
 	"log"
-
-	"github.com/go-redis/redis"
 )
 
 // Listener is the single point of loading the channel with jobs from a queue source,
@@ -13,8 +11,8 @@ type listener struct {
 	numWorkers int
 	qName      string
 
-	log   *log.Logger
-	redis *redis.Client
+	log       *log.Logger
+	taskboard TaskBoard
 
 	workers []*Worker
 
@@ -25,7 +23,7 @@ type listener struct {
 func newListener(queue string, workers int, s *Shigoto) (*listener, error) {
 	l := &listener{
 		log:        s.log,
-		redis:      s.redis,
+		taskboard:  s.taskBoard,
 		qName:      queue,
 		numWorkers: workers,
 	}
@@ -50,9 +48,14 @@ func (l *listener) Listen() {
 			l.stopWorkers()
 			return
 		default:
-			listElement := l.redis.BLPop(0, l.qName)
 			job := Job{}
-			err := json.Unmarshal([]byte(listElement.Val()[1]), &job)
+			jobJSON, err := l.taskboard.Pop(l.qName)
+			if err != nil {
+				l.log.Println("cannot pop job from queue", err.Error())
+				continue
+			}
+
+			err = json.Unmarshal(jobJSON, &job)
 			if err != nil {
 				l.log.Println("cannot unmarshal redis output to Job", err.Error())
 				continue

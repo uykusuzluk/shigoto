@@ -5,15 +5,13 @@ import (
 	"log"
 	"os"
 	"reflect"
-
-	"github.com/go-redis/redis"
 )
 
 var jobContainer map[string]Runner
 
 type Shigoto struct {
 	log       *log.Logger
-	redis     *redis.Client
+	taskBoard TaskBoard
 	listeners []listener
 }
 
@@ -27,7 +25,7 @@ func (s *Shigoto) initialize() error {
 	s.setLogger()
 	jobContainer = make(map[string]Runner)
 
-	err := s.setRedis()
+	err := s.setTaskboard()
 	if err != nil {
 		return err
 	}
@@ -37,7 +35,7 @@ func (s *Shigoto) initialize() error {
 
 func (s *Shigoto) Close() error {
 	s.stopListeners()
-	s.redis.Close()
+	s.taskBoard.Close()
 	return nil
 }
 
@@ -52,20 +50,14 @@ func (s *Shigoto) setLogger() {
 	s.log.Println("logger set for shigoto!")
 }
 
-func (s *Shigoto) setRedis() error {
-	s.log.Println("connecting to redis...")
-	s.redis = redis.NewClient(&redis.Options{
-		Addr:     "localhost" + ":" + "6379",
+func (s *Shigoto) setTaskboard() error {
+	s.taskBoard = &Redis{
+		Host:     "localhost",
+		Port:     "6379",
 		Password: "",
-		DB:       0,
-	})
-
-	redisStatus := s.redis.Ping()
-	if err := redisStatus.Err(); err != nil {
-		s.log.Fatalln("cannot ping Redis: ", err.Error())
-		return err
+		Database: 0,
 	}
-	s.log.Println("connected to redis!")
+	s.taskBoard.Initialize(s.log)
 	return nil
 }
 
@@ -79,7 +71,7 @@ func (s *Shigoto) Queue(job Runner, queue string) error {
 	if err != nil {
 		return err
 	}
-	s.redis.RPush(queue, jobForQ)
+	s.taskBoard.Push(jobForQ, queue)
 
 	return nil
 }
