@@ -2,6 +2,7 @@ package shigoto
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"reflect"
@@ -15,24 +16,56 @@ type Shigoto struct {
 	listeners []listener
 }
 
-func New() *Shigoto {
-	s := Shigoto{}
+type ShigotoOpts func(*Shigoto) error
+
+func New(opts ...ShigotoOpts) *Shigoto {
+	s := &Shigoto{}
+	s.defaultLogger()
+
+	for _, optFunc := range opts {
+		err := optFunc(s)
+		if err != nil {
+			panic(fmt.Sprintln("Problem with option ", optFunc, " err: ", err.Error()))
+		}
+	}
 	s.initialize()
-	return &s
+	return s
 }
 
 func (s *Shigoto) initialize() error {
-	s.setLogger()
 	jobContainer = make(map[string]Runner)
 
-	err := s.setTaskboard()
-	if err != nil {
-		return err
+	if s.taskBoard == nil {
+		err := s.defaultTaskboard()
+		if err != nil {
+			return err
+		}
 	}
-
 	return nil
 }
 
+// WithRedis sets the queue connection for Shigoto as Redis backend
+func WithRedis() func(*Shigoto) error {
+	return func(s *Shigoto) error {
+		s.taskBoard = &Redis{
+			Host:     "localhost",
+			Port:     "6379",
+			Password: "",
+			Database: 0,
+		}
+		return s.taskBoard.Initialize(s.log)
+	}
+}
+
+// WithLogger sets the logger for Shigoto to the given *log.Logger
+func WithLogger(l *log.Logger) func(*Shigoto) error {
+	return func(s *Shigoto) error {
+		s.log = l
+		return nil
+	}
+}
+
+// Close closes necessary used resources to prevent memory leaks
 func (s *Shigoto) Close() error {
 	s.stopListeners()
 	s.taskBoard.Close()
@@ -45,20 +78,24 @@ func (s *Shigoto) stopListeners() {
 	}
 }
 
-func (s *Shigoto) setLogger() {
+func (s *Shigoto) defaultLogger() {
 	s.log = log.New(os.Stdout, "shigoto ", log.LstdFlags)
-	s.log.Println("logger set for shigoto!")
+	s.log.Println("default logger set for shigoto!")
 }
 
-func (s *Shigoto) setTaskboard() error {
+func (s *Shigoto) defaultTaskboard() error {
 	s.taskBoard = &Redis{
 		Host:     "localhost",
 		Port:     "6379",
 		Password: "",
 		Database: 0,
 	}
-	s.taskBoard.Initialize(s.log)
-	return nil
+	return s.taskBoard.Initialize(s.log)
+}
+
+// QueueDefault makes it possible to queue a job with implied default queue name from a QName() method
+func (s *Shigoto) QueueDefault(job QNameRunner) error {
+	return s.Queue(job, job.QName())
 }
 
 func (s *Shigoto) Queue(job Runner, queue string) error {

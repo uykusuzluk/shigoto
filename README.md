@@ -32,3 +32,7 @@ func main() {
     manager.ListenQueue("testjob_queue", 2)
 }
 ```
+
+**Structure Fields should be exported (JSON Marshaling)
+**jobContainer global
+**remove reflection - make method for naming job "func (a *A) JobName() string"
