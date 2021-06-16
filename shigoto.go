@@ -57,6 +57,14 @@ func WithRedis() func(*Shigoto) error {
 	}
 }
 
+// WithTaskboard sets the taskboard with given backend compliant to the Taskboard interface
+func WithTaskboard(t TaskBoard) func(*Shigoto) error {
+	return func(s *Shigoto) error {
+		s.taskBoard = t
+		return s.taskBoard.Initialize(s.log)
+	}
+}
+
 // WithLogger sets the logger for Shigoto to the given *log.Logger
 func WithLogger(l *log.Logger) func(*Shigoto) error {
 	return func(s *Shigoto) error {
