@@ -47,7 +47,7 @@ const (
 	Finished
 )
 
-func NewJob(payload []byte, ptype string, queue string) (string, error) {
+func newJob(payload []byte, ptype string, queue string) (string, error) {
 	job := Job{
 		UUID:        uuid.New().String(),
 		QName:       queue,

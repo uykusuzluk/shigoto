@@ -16,9 +16,11 @@ type Shigoto struct {
 	listeners []listener
 }
 
-type ShigotoOpts func(*Shigoto) error
+// ShigotoOpts is the option function type for setting the properties of a Shigoto instance
+type shigotoOpts func(*Shigoto) error
 
-func New(opts ...ShigotoOpts) *Shigoto {
+// New creates a new Shigoto instance for queueing and processing jobs
+func New(opts ...shigotoOpts) *Shigoto {
 	s := &Shigoto{}
 	s.defaultLogger()
 
@@ -112,7 +114,7 @@ func (s *Shigoto) Queue(job Runner, queue string) error {
 		return err
 	}
 
-	jobForQ, err := NewJob(encodedJob, reflect.TypeOf(job).String(), queue)
+	jobForQ, err := newJob(encodedJob, reflect.TypeOf(job).String(), queue)
 	if err != nil {
 		return err
 	}

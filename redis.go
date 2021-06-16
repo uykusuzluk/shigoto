@@ -6,6 +6,7 @@ import (
 	"github.com/go-redis/redis"
 )
 
+// Redis struct to be used as a backend taskboard for queues
 type Redis struct {
 	Host     string
 	Port     string
@@ -16,6 +17,7 @@ type Redis struct {
 	log   *log.Logger
 }
 
+// Initialize prepares Redis backend for use
 func (r *Redis) Initialize(l *log.Logger) error {
 	r.log = l
 	return r.connect()
@@ -37,6 +39,8 @@ func (r *Redis) connect() error {
 	r.log.Println("connected to redis!")
 	return nil
 }
+
+// Push method adds a job to the right end (tail) of the named redis list (queue)
 func (r *Redis) Push(job string, queue string) error {
 	cmd := r.redis.RPush(queue, job)
 	if cmd.Err() != nil {
@@ -45,6 +49,8 @@ func (r *Redis) Push(job string, queue string) error {
 	return nil
 }
 
+// Pop method remove a job from the left end (head) of the named redis list (queue) for processing.
+// For redis a blocking function is used on a single listening edge point for a queue name.
 func (r *Redis) Pop(queue string) ([]byte, error) {
 	listElement := r.redis.BLPop(0, queue)
 	if listElement.Err() != nil {
@@ -53,6 +59,7 @@ func (r *Redis) Pop(queue string) ([]byte, error) {
 	return []byte(listElement.Val()[1]), nil
 }
 
+// Close prepares the resource for termination without memory leaks
 func (r *Redis) Close() {
 	r.redis.Close()
 }
