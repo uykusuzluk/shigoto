@@ -14,13 +14,13 @@ type Worker struct {
 }
 
 // NewWorker is the pseudo-constructor of Worker struct
-func NewWorker(jobChan chan Job, l *log.Logger) *Worker {
+func NewWorker(jobChan <-chan Job, l *log.Logger) *Worker {
 	w := &Worker{log: l}
 	w.initialize(jobChan)
 	return w
 }
 
-func (w *Worker) initialize(jobChan chan Job) {
+func (w *Worker) initialize(jobChan <-chan Job) {
 	w.jobsToRun = jobChan
 	w.stopChan = make(chan struct{})
 }
@@ -30,6 +30,7 @@ func (w *Worker) work() {
 	for {
 		select {
 		case <-w.stopChan:
+			w.log.Println("worker work: received stop message and returning...")
 			return
 		case job := <-w.jobsToRun:
 			w.log.Println("worker work: job received...")

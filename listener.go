@@ -2,6 +2,7 @@ package shigoto
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 )
 
@@ -16,7 +17,8 @@ type listener struct {
 
 	workers []*Worker
 
-	jobsToRun chan<- Job
+	// TODO: turn it into a send-only channel?
+	jobsToRun chan Job
 	stopChan  chan struct{}
 }
 
@@ -72,4 +74,33 @@ func (l *listener) stopWorkers() {
 	for _, w := range l.workers {
 		w.stop()
 	}
+}
+
+func (l *listener) removeNWorkers(n int) error {
+	if n > l.numWorkers {
+		return fmt.Errorf("stopNWorkers: given number of workers to shutdown is greater than current worker count")
+	}
+
+	for i := 0; i > n; i++ {
+		w := l.workers[len(l.workers)-1]
+		w.stop()
+		l.workers = l.workers[:len(l.workers)-1]
+		l.log.Println("removeNWorkers: stop a worker and removed it from the workers slice")
+	}
+
+	return nil
+}
+
+func (l *listener) addNWorkers(n int) error {
+	// TODO: Add global option for maximum allowed worker count (buffered channel and resource limits)
+	if n >= l.numWorkers {
+		return fmt.Errorf("addNWorkers: given number of workers to add ")
+	}
+	for i := 0; i < l.numWorkers; i++ {
+		w := NewWorker(l.jobsToRun, l.log)
+		l.workers = append(l.workers, w)
+		go w.work()
+	}
+
+	return nil
 }
