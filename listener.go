@@ -53,7 +53,7 @@ func (l *listener) listen() {
 			job := Job{}
 			jobJSON, err := l.taskboard.Pop(l.qName)
 			if err != nil {
-				l.log.Println("cannot pop job from queue", err.Error())
+				l.log.Println("cannot pop job from queue: ", l.qName, " err: ", err.Error())
 				continue
 			}
 
@@ -62,10 +62,10 @@ func (l *listener) listen() {
 				l.log.Println("cannot unmarshal redis output to Job", err.Error())
 				continue
 			}
-			l.log.Printf("unmarshaled to Job %+v", job)
-			l.log.Println("sending job to worker channel...")
+			//l.log.Printf("unmarshaled to Job %+v", job)
+			l.log.Println("listen: sending job to worker channel... q: ", l.qName)
 			l.jobsToRun <- job
-			l.log.Println("job sent to worker channel")
+			l.log.Println("listen: job sent to worker channel. q: ", l.qName)
 		}
 	}
 }
@@ -93,13 +93,31 @@ func (l *listener) removeNWorkers(n int) error {
 
 func (l *listener) addNWorkers(n int) error {
 	// TODO: Add global option for maximum allowed worker count (buffered channel and resource limits)
-	if n >= l.numWorkers {
+	if n >= 100 {
 		return fmt.Errorf("addNWorkers: given number of workers to add ")
 	}
 	for i := 0; i < l.numWorkers; i++ {
 		w := NewWorker(l.jobsToRun, l.log)
 		l.workers = append(l.workers, w)
+		l.numWorkers++
 		go w.work()
+	}
+
+	return nil
+}
+
+func (l *listener) modWorkerCount(n int) error {
+	if n < 0 {
+		return fmt.Errorf("modWorkerCount: given worker count cannot be negative")
+	}
+
+	target := n - l.numWorkers
+	if target < 0 {
+		return l.removeNWorkers(-target)
+	}
+
+	if target > 0 {
+		return l.addNWorkers(target)
 	}
 
 	return nil

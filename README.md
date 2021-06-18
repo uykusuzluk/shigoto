@@ -5,6 +5,7 @@ A distributed job/task scheduling/queueing library
 ```golang
 package main
 
+// TestJob has only "exported" fields which can be encoded to JSON
 type TestJob struct {
     Name string
     Value int
@@ -23,7 +24,7 @@ func main() {
         Name: "test job",
         Value: 12345,
     }
-    manager.Queue(&job1, "testjob_queue")
+    manager.QueueTo(&job1, "testjob_queue")
 
     // Register a struct as a runnable Job
     manager.Register(&TestJob{})
@@ -32,7 +33,18 @@ func main() {
     manager.ListenQueue("testjob_queue", 2)
 }
 ```
-
-**Structure Fields should be exported (JSON Marshaling)
-**jobContainer global
-**remove reflection - make method for naming job "func (a *A) JobName() string"
+### TODO:  
+Monitoring:  
+    Node:  
+    - Show each listen (with qname) and their worker counts  
+    - Allow adding/removing workers or set a number for worker counts  
+    - Connect to a master node??? (Need ID first to identify)  
+          
+Master:  
+    - Show each node  
+    - Show aggregated workers for a queue  
+      
+      
+**Structure Fields should be exported (JSON Marshaling)  
+**jobContainer global  
+**remove reflection - make method for naming job "func (a *A) JobName() string"  
