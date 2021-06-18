@@ -17,10 +17,10 @@ type Shigoto struct {
 }
 
 // ShigotoOpts is the option function type for setting the properties of a Shigoto instance
-type shigotoOpts func(*Shigoto) error
+type ShigotoOpts func(*Shigoto) error
 
 // New creates a new Shigoto instance for queueing and processing jobs
-func New(opts ...shigotoOpts) *Shigoto {
+func New(opts ...ShigotoOpts) *Shigoto {
 	s := &Shigoto{}
 	s.defaultLogger()
 
@@ -47,7 +47,7 @@ func (s *Shigoto) initialize() error {
 }
 
 // WithRedis sets the queue connection for Shigoto as Redis backend
-func WithRedis() func(*Shigoto) error {
+func WithRedis() ShigotoOpts {
 	return func(s *Shigoto) error {
 		s.taskBoard = &Redis{
 			Host:     "localhost",
@@ -60,7 +60,7 @@ func WithRedis() func(*Shigoto) error {
 }
 
 // WithTaskboard sets the taskboard with given backend compliant to the Taskboard interface
-func WithTaskboard(t TaskBoard) func(*Shigoto) error {
+func WithTaskboard(t TaskBoard) ShigotoOpts {
 	return func(s *Shigoto) error {
 		s.taskBoard = t
 		return s.taskBoard.Initialize(s.log)
@@ -68,7 +68,7 @@ func WithTaskboard(t TaskBoard) func(*Shigoto) error {
 }
 
 // WithLogger sets the logger for Shigoto to the given *log.Logger
-func WithLogger(l *log.Logger) func(*Shigoto) error {
+func WithLogger(l *log.Logger) ShigotoOpts {
 	return func(s *Shigoto) error {
 		s.log = l
 		return nil
@@ -94,13 +94,8 @@ func (s *Shigoto) defaultLogger() {
 }
 
 func (s *Shigoto) defaultTaskboard() error {
-	s.taskBoard = &Redis{
-		Host:     "localhost",
-		Port:     "6379",
-		Password: "",
-		Database: 0,
-	}
-	return s.taskBoard.Initialize(s.log)
+	redisOpt := WithRedis()
+	return redisOpt(s)
 }
 
 // QueueDefault makes it possible to queue a job with implied default queue name from a QName() method
@@ -109,12 +104,22 @@ func (s *Shigoto) QueueDefault(job QNameRunner) error {
 }
 
 func (s *Shigoto) Queue(job Runner, queue string) error {
-	encodedJob, err := json.Marshal(job)
+	var (
+		payload []byte
+		err     error
+	)
+
+	if pl, isJSONer := job.(JSONer); isJSONer {
+		payload, err = pl.JSON()
+	} else {
+		payload, err = json.Marshal(job)
+	}
+
 	if err != nil {
 		return err
 	}
 
-	jobForQ, err := newJob(encodedJob, reflect.TypeOf(job).String(), queue)
+	jobForQ, err := newJob(payload, reflect.TypeOf(job).String(), queue)
 	if err != nil {
 		return err
 	}
