@@ -98,12 +98,12 @@ func (s *Shigoto) defaultTaskboard() error {
 	return redisOpt(s)
 }
 
-// QueueDefault makes it possible to queue a job with implied default queue name from a QName() method
-func (s *Shigoto) QueueDefault(job QNameRunner) error {
-	return s.Queue(job, job.QName())
+// Queue makes it possible to queue a job with implied default queue name from a QName() method
+func (s *Shigoto) Queue(job QNameRunner) error {
+	return s.QueueTo(job, job.QName())
 }
 
-func (s *Shigoto) Queue(job Runner, queue string) error {
+func (s *Shigoto) QueueTo(job Runner, queue string) error {
 	var (
 		payload []byte
 		err     error
@@ -134,7 +134,7 @@ func (s *Shigoto) ListenQueue(queue string, workers int) error {
 		return err
 	}
 	s.listeners = append(s.listeners, *listener)
-	go listener.Listen()
+	go listener.listen()
 	return nil
 }
 

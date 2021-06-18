@@ -41,7 +41,7 @@ func (l *listener) init() {
 	}
 }
 
-func (l *listener) Listen() {
+func (l *listener) listen() {
 	for {
 		select {
 		case <-l.stopChan:
