@@ -43,8 +43,14 @@ func (w *Worker) work() {
 			job.Attemps++
 			job.StartedAt = time.Now().UTC()
 
+			// TODO: Change requirement for Newer interface and handle it with reflection
 			objBlueprint := jobContainer[job.PayloadType]
-			err := json.Unmarshal(job.Payload, &objBlueprint)
+			newObj, err := objBlueprint.New()
+			if err != nil {
+				w.log.Println("worker work: cannot create a new variable from blueprint: Payload: ", job.Payload, " Type: ", job.PayloadType)
+			}
+
+			err = json.Unmarshal(job.Payload, &newObj)
 			if err != nil {
 				w.log.Println("worker work: cannot unmarshal object. Payload: ", job.Payload, " Type: ", job.PayloadType)
 			}

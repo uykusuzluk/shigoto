@@ -8,7 +8,7 @@ import (
 	"reflect"
 )
 
-var jobContainer map[string]Runner
+var jobContainer map[string]NewRunner
 
 type Shigoto struct {
 	log       *log.Logger
@@ -35,7 +35,7 @@ func New(opts ...ShigotoOpts) *Shigoto {
 }
 
 func (s *Shigoto) initialize() error {
-	jobContainer = make(map[string]Runner)
+	jobContainer = make(map[string]NewRunner)
 
 	if s.taskBoard == nil {
 		err := s.defaultTaskboard()
@@ -99,11 +99,11 @@ func (s *Shigoto) defaultTaskboard() error {
 }
 
 // Queue makes it possible to queue a job with implied default queue name from a QName() method
-func (s *Shigoto) Queue(job QNameRunner) error {
+func (s *Shigoto) Queue(job QNameNewRunner) error {
 	return s.QueueTo(job, job.QName())
 }
 
-func (s *Shigoto) QueueTo(job Runner, queue string) error {
+func (s *Shigoto) QueueTo(job NewRunner, queue string) error {
 	var (
 		payload []byte
 		err     error
@@ -138,7 +138,7 @@ func (s *Shigoto) ListenQueue(queue string, workers int) error {
 	return nil
 }
 
-func (s *Shigoto) Register(j Runner) error {
+func (s *Shigoto) Register(j NewRunner) error {
 	s.log.Println("register: type of runner is: ", reflect.TypeOf(j).String())
 	jobContainer[reflect.TypeOf(j).String()] = j
 	return nil
