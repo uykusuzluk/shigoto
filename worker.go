@@ -46,56 +46,16 @@ func (w *Worker) work() {
 
 			// TODO: Change requirement for Newer interface and handle it with reflection
 			objBlueprint := jobContainer[job.PayloadType]
-			newInt := reflect.New(reflect.TypeOf(objBlueprint)).Elem().Interface()
+			refType := reflect.Indirect(reflect.ValueOf(objBlueprint)).Interface()
+			newRef := reflect.New(reflect.TypeOf(refType)).Interface()
 
-			// package main
-
-			// import (
-			// 	"fmt"
-			// 	"reflect"
-			// )
-
-			// type A struct {
-			// 	Name string
-			// 	ID   int
-			// }
-
-			// func (a *A) Run() {
-			// 	fmt.Printf("Running as %+v with type %T\n", a, a)
-			// }
-
-			// func main() {
-			// 	original := &A{Name: "abc", ID:0}
-			// 	fmt.Printf("%+v with type: %T\n", original, original)
-			// 	original.Run()
-
-			// 	reflected := reflect.TypeOf(original)
-			// 	fmt.Printf("%+v with type: %T\n", reflected, reflected)
-
-			// 	reflecteda := reflect.New(reflect.TypeOf(original)).Elem().Interface()
-			// 	fmt.Printf("%+v with type: %T\n", reflecteda, reflecteda)
-			// 	//reflecteda.Run()
-			// 	new := reflecteda.(*A)
-			// 	fmt.Printf("%+v with type: %T\n", new, new)
-			// 	new.Run()
-
-			// 	finalPrint := reflect.New(reflect.TypeOf(original)).Elem().Interface()
-			// 	fmt.Printf("%+v with type: %T\n", finalPrint, finalPrint)
-
-			// 	a, b := original.(type)
-			// 	fmt.Printf("a: %+v and b: %+v", a, b)
-			// }
-
-			if err != nil {
-				w.log.Println("worker work: cannot create a new variable from blueprint: Payload: ", job.Payload, " Type: ", job.PayloadType)
-			}
-
-			err = json.Unmarshal(job.Payload, &newObj)
+			err := json.Unmarshal(job.Payload, newRef)
 			if err != nil {
 				w.log.Println("worker work: cannot unmarshal object. Payload: ", job.Payload, " Type: ", job.PayloadType)
 			}
 
-			objBlueprint.Run()
+			runnableRef := newRef.(Runner)
+			runnableRef.Run()
 			w.log.Println("worker work: job ran successfully.")
 		}
 	}

@@ -5,15 +5,6 @@ type Runner interface {
 	Run() error
 }
 
-type Newer interface {
-	New() (Runner, error)
-}
-
-type NewRunner interface {
-	Newer
-	Runner
-}
-
 // QNamer interface allows implied default queue name for jobs
 type QNamer interface {
 	QName() string
@@ -22,12 +13,6 @@ type QNamer interface {
 // QNameRunner interface that combines Runner and QNamer interfaces
 type QNameRunner interface {
 	QNamer
-	Runner
-}
-
-type QNameNewRunner interface {
-	QNamer
-	Newer
 	Runner
 }
 
