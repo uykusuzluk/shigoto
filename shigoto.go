@@ -139,7 +139,14 @@ func (s *Shigoto) ListenQueue(queue string, workers int) error {
 }
 
 func (s *Shigoto) Register(j NewRunner) error {
-	s.log.Println("register: type of runner is: ", reflect.TypeOf(j).String())
-	jobContainer[reflect.TypeOf(j).String()] = j
+	if jobIDer, isIdentifier := j.(Identifier); isIdentifier {
+		jobContainer[jobIDer.Identify()] = j
+		s.log.Println("register: type of runner is: ", jobIDer.Identify())
+		return nil
+	}
+
+	name := reflect.TypeOf(j).String()
+	s.log.Println("register: type of runner is: ", name)
+	jobContainer[name] = j
 	return nil
 }
