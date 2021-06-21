@@ -42,7 +42,7 @@ type JSONer interface {
 }
 
 // Identifier interface enforces a method for the type information
-// of the task. Implementing this method will allow easy serialization
+// of the task. Implementing this method can allow easy serialization
 // of the object even by the workers coded in different programming languages.
 type Identifier interface {
 	Identify() string

@@ -43,7 +43,6 @@ func (w *Worker) work() {
 			job.Attemps++
 			job.StartedAt = time.Now().UTC()
 
-			// TODO: Change requirement for Newer interface and handle it with reflection
 			objBlueprint := jobContainer[job.PayloadType]
 			newObj, err := objBlueprint.New()
 			if err != nil {
