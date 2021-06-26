@@ -119,6 +119,7 @@ func (s *Shigoto) QueueTo(job NewRunner, queue string) error {
 		return err
 	}
 
+	// TODO: instead of reflect use Identifier interface
 	jobForQ, err := newJob(payload, reflect.TypeOf(job).String(), queue)
 	if err != nil {
 		return err

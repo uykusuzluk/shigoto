@@ -3,6 +3,7 @@ package shigoto
 import (
 	"encoding/json"
 	"fmt"
+	"hash/crc32"
 	"time"
 
 	"github.com/google/uuid"
@@ -33,6 +34,7 @@ type Job struct {
 
 	PayloadType string
 	Payload     []byte
+	ErrCheck    uint32
 }
 
 // JobStatus is the enumeration for the current status of the job
@@ -55,6 +57,7 @@ func newJob(payload []byte, ptype string, queue string) (string, error) {
 		QueuedAt:    time.Now().UTC(),
 		PayloadType: ptype,
 		Payload:     payload,
+		ErrCheck:    crc32.ChecksumIEEE(payload),
 	}
 	fmt.Println(time.Now().UTC())
 	jobJSON, err := json.Marshal(job)
@@ -83,6 +86,14 @@ func (j *Job) FailExpired() {
 		" time now: " + time.Now().Format(datetimeFormat))
 }
 
-func (j *Job) failWithMsg(msg string) {
+func (j *Job) failChecksum() {
+	j.failWithMsg("checksum hash for payload does not match the current one")
+}
 
+func (j *Job) failWithMsg(msg string) {
+	// TODO: write the failure to somewhere
+}
+
+func (j *Job) checkPayload() bool {
+	return j.ErrCheck == crc32.ChecksumIEEE([]byte(j.Payload))
 }

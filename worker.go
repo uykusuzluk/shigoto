@@ -34,9 +34,17 @@ func (w *Worker) work() {
 			return
 		case job := <-w.jobsToRun:
 			w.log.Println("worker work: job received...")
+
+			correct := job.checkPayload()
+			if !correct {
+				job.failChecksum()
+				continue
+			}
+
 			stale := job.Expired()
 			if stale {
 				job.FailExpired()
+				continue
 			}
 
 			w.log.Println("worker work: job ID: ", job.UUID, " will be serialized and run.")
