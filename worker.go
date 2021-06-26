@@ -62,7 +62,7 @@ func (w *Worker) work() {
 				w.log.Println("worker work: cannot unmarshal object. Payload: ", job.Payload, " Type: ", job.PayloadType)
 			}
 
-			objBlueprint.Run()
+			newObj.Run()
 			w.log.Println("worker work: job ran successfully.")
 		}
 	}
