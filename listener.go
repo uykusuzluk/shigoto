@@ -157,9 +157,9 @@ func (l *listener) addNWorkers(n int) error {
 	return nil
 }
 
-func (l *listener) modWorkerCount(n int) error {
+func (l *listener) setWorkerCount(n int) error {
 	if n < 0 {
-		return fmt.Errorf("modWorkerCount: given worker count cannot be negative")
+		return fmt.Errorf("setWorkerCount: given worker count cannot be negative")
 	}
 
 	target := n - len(l.workers)
