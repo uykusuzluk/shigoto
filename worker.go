@@ -14,7 +14,7 @@ type Worker struct {
 }
 
 // NewWorker is the pseudo-constructor of Worker struct
-func NewWorker(jobChan <-chan Job, l *log.Logger) *Worker {
+func newWorker(jobChan <-chan Job, l *log.Logger) *Worker {
 	w := &Worker{log: l}
 	w.initialize(jobChan)
 	return w
@@ -35,15 +35,15 @@ func (w *Worker) work() {
 		case job := <-w.jobsToRun:
 			w.log.Println("worker work: job received...")
 
-			correct := job.checkPayload()
+			correct, err := job.checkPayload()
 			if !correct {
-				job.failChecksum()
+				w.log.Println(err.Error())
 				continue
 			}
 
-			stale := job.Expired()
+			stale, err := job.Expired()
 			if stale {
-				job.FailExpired()
+				w.log.Println(err.Error())
 				continue
 			}
 
@@ -62,7 +62,12 @@ func (w *Worker) work() {
 				w.log.Println("worker work: cannot unmarshal object. Payload: ", job.Payload, " Type: ", job.PayloadType)
 			}
 
-			newObj.Run()
+			err = newObj.Run()
+			if err != nil {
+				w.log.Printf("Job with ID: %s has failed. Job: %+v", job.UUID, job)
+				// TODO: Fail job stuff (check attemps left, requeue, make failed_jobs db etc...)
+			}
+
 			w.log.Println("worker work: job ran successfully.")
 		}
 	}
