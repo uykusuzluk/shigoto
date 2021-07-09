@@ -9,8 +9,7 @@ import (
 // Listener is the single point of loading the channel with jobs from a queue source,
 // to send them to the registered active workers
 type listener struct {
-	numWorkers int
-	qName      string
+	qName string
 
 	log       *log.Logger
 	taskboard TaskBoard
@@ -22,22 +21,21 @@ type listener struct {
 	stopChan  chan struct{}
 }
 
-func newListener(queue string, workers int, s *Shigoto) (*listener, error) {
+func newListener(queue string, wcount int, s *Shigoto) (*listener, error) {
 	l := &listener{
-		log:        s.log,
-		taskboard:  s.taskBoard,
-		qName:      queue,
-		numWorkers: workers,
+		log:       s.log,
+		taskboard: s.taskBoard,
+		qName:     queue,
 	}
-	l.init()
+	l.init(wcount)
 	return l, nil
 }
 
-func (l *listener) init() {
-	jobChan := make(chan Job, l.numWorkers*2)
+func (l *listener) init(wcount int) {
+	jobChan := make(chan Job, wcount*2)
 	l.jobsToRun = jobChan
-	for i := 0; i < l.numWorkers; i++ {
-		w := NewWorker(jobChan, l.log)
+	for i := 0; i < wcount; i++ {
+		w := newWorker(jobChan, l.log)
 		l.workers = append(l.workers, w)
 		go w.work()
 	}
@@ -60,6 +58,7 @@ func (l *listener) listen() {
 			err = json.Unmarshal(jobJSON, &job)
 			if err != nil {
 				l.log.Println("cannot unmarshal redis output to Job", err.Error())
+				// TODO: Run failed job routines
 				continue
 			}
 			//l.log.Printf("unmarshaled to Job %+v", job)
@@ -77,7 +76,7 @@ func (l *listener) stopWorkers() {
 }
 
 func (l *listener) removeNWorkers(n int) error {
-	if n > l.numWorkers {
+	if n > len(l.workers) {
 		return fmt.Errorf("stopNWorkers: given number of workers to shutdown is greater than current worker count")
 	}
 
@@ -85,7 +84,7 @@ func (l *listener) removeNWorkers(n int) error {
 		w := l.workers[len(l.workers)-1]
 		w.stop()
 		l.workers = l.workers[:len(l.workers)-1]
-		l.log.Println("removeNWorkers: stop a worker and removed it from the workers slice")
+		l.log.Println("removeNWorkers: stopped and removed the last worker from the workers' slice")
 	}
 
 	return nil
@@ -93,13 +92,13 @@ func (l *listener) removeNWorkers(n int) error {
 
 func (l *listener) addNWorkers(n int) error {
 	// TODO: Add global option for maximum allowed worker count (buffered channel and resource limits)
-	if n >= 100 {
-		return fmt.Errorf("addNWorkers: given number of workers to add ")
+	if (len(l.workers) + n) >= 100 {
+		return fmt.Errorf("addNWorkers: requested amount of workers exceed the limit: %d workers", n)
 	}
-	for i := 0; i < l.numWorkers; i++ {
-		w := NewWorker(l.jobsToRun, l.log)
+
+	for i := 0; i < n; i++ {
+		w := newWorker(l.jobsToRun, l.log)
 		l.workers = append(l.workers, w)
-		l.numWorkers++
 		go w.work()
 	}
 
@@ -111,7 +110,7 @@ func (l *listener) modWorkerCount(n int) error {
 		return fmt.Errorf("modWorkerCount: given worker count cannot be negative")
 	}
 
-	target := n - l.numWorkers
+	target := n - len(l.workers)
 	if target < 0 {
 		return l.removeNWorkers(-target)
 	}
