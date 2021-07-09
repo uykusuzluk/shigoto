@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"time"
 )
 
 // Listener is the single point of loading the channel with jobs from a queue source,
@@ -125,6 +126,35 @@ func (l *listener) stopWorkers() {
 	for _, w := range l.workers {
 		w.stop()
 	}
+}
+
+// GracefulClose waits for the Job channel to empty or 3 minutes
+// (whichever comes first before sending back a message which
+// signals the channel can be closed.
+// func (l *listener) gracefulClose(signalExit chan struct{}) {
+// 	select {
+// 	case <-time.After(3 * time.Minute):
+// 		signalExit <- struct{}{}
+// 	default:
+// 		if l.state != running && len(l.jobsToRun) == 0 {
+// 			signalExit <- struct{}{}
+// 		}
+// 	}
+// }
+
+// GracefulClose waits for the Job channel to empty or 3 minutes
+// (whichever comes first before sending back a message which
+// signals the channel can be closed.
+func (l *listener) gracefulClose() bool {
+	select {
+	case <-time.After(3 * time.Minute):
+		return true
+	default:
+		if l.state != running && len(l.jobsToRun) == 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func (l *listener) removeNWorkers(n int) error {
