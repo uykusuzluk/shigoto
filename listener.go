@@ -10,7 +10,7 @@ import (
 // Listener is the single point of loading the channel with jobs from a queue source,
 // to send them to the registered active workers
 type listener struct {
-	qName string
+	queue string
 	state listenerState
 
 	log       *log.Logger
@@ -19,7 +19,7 @@ type listener struct {
 	workers []*Worker
 
 	// TODO: turn it into a send-only channel?
-	jobsToRun chan Job
+	jobsChan  chan Job
 	stopChan  chan struct{}
 	pauseChan chan struct{}
 }
@@ -28,7 +28,7 @@ type listenerState int
 
 // States defined for the status of Listener
 const (
-	configuring listenerState = iota + 1
+	initializing listenerState = iota + 1
 	running
 	pausing
 	resuming
@@ -40,8 +40,8 @@ func newListener(queue string, wcount int, s *Shigoto) (*listener, error) {
 	l := &listener{
 		log:       s.log,
 		taskboard: s.taskBoard,
-		qName:     queue,
-		state:     configuring,
+		queue:     queue,
+		state:     initializing,
 	}
 	l.init(wcount)
 	return l, nil
@@ -49,7 +49,7 @@ func newListener(queue string, wcount int, s *Shigoto) (*listener, error) {
 
 func (l *listener) init(wcount int) {
 	jobChan := make(chan Job, wcount*2)
-	l.jobsToRun = jobChan
+	l.jobsChan = jobChan
 	for i := 0; i < wcount; i++ {
 		w := newWorker(jobChan, l.log)
 		l.workers = append(l.workers, w)
@@ -86,9 +86,9 @@ func (l *listener) listen() {
 
 func (l *listener) run() {
 	job := Job{}
-	jobJSON, err := l.taskboard.Pop(l.qName)
+	jobJSON, err := l.taskboard.Pop(l.queue)
 	if err != nil {
-		l.log.Println("cannot pop job from queue: ", l.qName, " err: ", err.Error())
+		l.log.Println("cannot pop job from queue: ", l.queue, " err: ", err.Error())
 		return
 	}
 
@@ -99,9 +99,9 @@ func (l *listener) run() {
 		return
 	}
 	//l.log.Printf("unmarshaled to Job %+v", job)
-	l.log.Println("listen: sending job to worker channel... q: ", l.qName)
-	l.jobsToRun <- job
-	l.log.Println("listen: job sent to worker channel. q: ", l.qName)
+	l.log.Println("listen: sending job to worker channel... q: ", l.queue)
+	l.jobsChan <- job
+	l.log.Println("listen: job sent to worker channel. q: ", l.queue)
 }
 
 func (l *listener) pause() {
@@ -138,14 +138,14 @@ func (l *listener) waitGracefulClose() bool {
 		case <-time.After(3 * time.Minute):
 			return true
 		default:
-			if l.state != running && len(l.jobsToRun) == 0 {
+			if l.state != running && len(l.jobsChan) == 0 {
 				return true
 			}
 		}
 	}
 }
 
-func (l *listener) removeNWorkers(n int) error {
+func (l *listener) removeWorkers(n int) error {
 	if n > len(l.workers) {
 		return fmt.Errorf("stopNWorkers: given number of workers to shutdown is greater than current worker count")
 	}
@@ -160,14 +160,14 @@ func (l *listener) removeNWorkers(n int) error {
 	return nil
 }
 
-func (l *listener) addNWorkers(n int) error {
+func (l *listener) addWorkers(n int) error {
 	// TODO: Add global option for maximum allowed worker count (buffered channel and resource limits)
 	if (len(l.workers) + n) >= 100 {
 		return fmt.Errorf("addNWorkers: requested amount of workers exceed the limit: %d workers", n)
 	}
 
 	for i := 0; i < n; i++ {
-		w := newWorker(l.jobsToRun, l.log)
+		w := newWorker(l.jobsChan, l.log)
 		l.workers = append(l.workers, w)
 		go w.work()
 	}
@@ -182,11 +182,11 @@ func (l *listener) setWorkerCount(n int) error {
 
 	target := n - len(l.workers)
 	if target < 0 {
-		return l.removeNWorkers(-target)
+		return l.removeWorkers(-target)
 	}
 
 	if target > 0 {
-		return l.addNWorkers(target)
+		return l.addWorkers(target)
 	}
 
 	return nil
