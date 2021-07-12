@@ -44,6 +44,7 @@ func (wp *workerPool) put() {
 	if wp.state == wpClosing {
 		return
 	}
+	// FIXME: !!! Will panic if channel is closed right here. Recover?
 	wp.pool <- work
 }
 
