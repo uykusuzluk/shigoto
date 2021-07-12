@@ -8,9 +8,9 @@ import (
 
 // Worker is the responsible for reading jobs sent by the Listener and starting their Run() methods
 type Worker struct {
-	log       *log.Logger
-	jobsToRun <-chan Job
-	stopChan  chan struct{}
+	log      *log.Logger
+	jobchan  <-chan Job
+	stopChan chan struct{}
 }
 
 // NewWorker is the pseudo-constructor of Worker struct
@@ -21,7 +21,7 @@ func newWorker(jobChan <-chan Job, l *log.Logger) *Worker {
 }
 
 func (w *Worker) initialize(jobChan <-chan Job) {
-	w.jobsToRun = jobChan
+	w.jobchan = jobChan
 	w.stopChan = make(chan struct{})
 }
 
@@ -32,7 +32,7 @@ func (w *Worker) work() {
 		case <-w.stopChan:
 			w.log.Println("worker work: received stop message and returning...")
 			return
-		case job := <-w.jobsToRun:
+		case job := <-w.jobchan:
 			w.log.Println("worker work: job received...")
 
 			correct, err := job.checkPayload()
@@ -75,6 +75,6 @@ func (w *Worker) work() {
 
 // Stop method is called to kill a running Worker
 func (w *Worker) stop() {
-	w.jobsToRun = nil
+	w.jobchan = nil
 	w.stopChan <- struct{}{}
 }

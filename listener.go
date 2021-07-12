@@ -48,7 +48,7 @@ func newListener(queue string, wcount int, s *Shigoto) (*listener, error) {
 }
 
 func (l *listener) init(wcount int) {
-	jobChan := make(chan Job, wcount*2)
+	jobChan := make(chan Job)
 	l.jobsChan = jobChan
 	for i := 0; i < wcount; i++ {
 		w := newWorker(jobChan, l.log)
@@ -135,7 +135,7 @@ func (l *listener) stopWorkers() {
 func (l *listener) waitGracefulClose() bool {
 	for {
 		select {
-		case <-time.After(3 * time.Minute):
+		case <-time.After(2 * time.Minute):
 			return true
 		default:
 			if l.state != running && len(l.jobsChan) == 0 {
