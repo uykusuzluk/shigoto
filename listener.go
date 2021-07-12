@@ -124,7 +124,7 @@ func (l *listener) close() {
 		}
 	}
 
-	close(l.wp.pool)
+	l.wp.close()
 	close(l.pauseChan)
 	close(l.stopChan)
 }

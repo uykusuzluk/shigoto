@@ -48,9 +48,8 @@ func (wp *workerPool) put() {
 }
 
 func (wp *workerPool) close() {
-	if wp.state == wpClosing {
-		close(wp.pool)
-	}
+	wp.state = wpClosing
+	close(wp.pool)
 }
 
 func work(job Job, l *log.Logger, wp *workerPool) {
