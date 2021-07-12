@@ -84,7 +84,7 @@ func (s *Shigoto) Close() error {
 
 func (s *Shigoto) stopListeners() {
 	for _, l := range s.listeners {
-		l.stopChan <- struct{}{}
+		l.stop()
 	}
 }
 

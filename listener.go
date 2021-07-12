@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"time"
 )
 
 // Listener is the single point of loading the channel with jobs from a queue source,
@@ -16,10 +15,8 @@ type listener struct {
 	log       *log.Logger
 	taskboard TaskBoard
 
-	workers []*Worker
-
+	wp *workerPool
 	// TODO: turn it into a send-only channel?
-	jobsChan  chan Job
 	stopChan  chan struct{}
 	pauseChan chan struct{}
 }
@@ -34,6 +31,7 @@ const (
 	resuming
 	paused
 	closing
+	stopped
 )
 
 func newListener(queue string, wcount int, s *Shigoto) (*listener, error) {
@@ -48,13 +46,7 @@ func newListener(queue string, wcount int, s *Shigoto) (*listener, error) {
 }
 
 func (l *listener) init(wcount int) {
-	jobChan := make(chan Job)
-	l.jobsChan = jobChan
-	for i := 0; i < wcount; i++ {
-		w := newWorker(jobChan, l.log)
-		l.workers = append(l.workers, w)
-		go w.work()
-	}
+	l.wp = newWorkerPool(wcount)
 	l.state = running
 }
 
@@ -62,7 +54,7 @@ func (l *listener) listen() {
 	for {
 		select {
 		case <-l.stopChan:
-			l.stopWorkers()
+			l.state = stopped
 			return
 		case <-l.pauseChan:
 			if l.state == pausing {
@@ -100,7 +92,8 @@ func (l *listener) run() {
 	}
 	//l.log.Printf("unmarshaled to Job %+v", job)
 	l.log.Println("listen: sending job to worker channel... q: ", l.queue)
-	l.jobsChan <- job
+	worker := l.wp.get()
+	go worker(job, l.log, l.wp)
 	l.log.Println("listen: job sent to worker channel. q: ", l.queue)
 }
 
@@ -123,56 +116,17 @@ func (l *listener) stop() {
 	l.stopChan <- struct{}{}
 }
 
-func (l *listener) stopWorkers() {
-	for _, w := range l.workers {
-		w.stop()
-	}
-}
-
-// GracefulClose waits for the Job channel to empty or 3 minutes
-// (whichever comes first before sending back a message which
-// signals the channel can be closed.
-func (l *listener) waitGracefulClose() bool {
-	for {
-		select {
-		case <-time.After(2 * time.Minute):
-			return true
-		default:
-			if l.state != running && len(l.jobsChan) == 0 {
-				return true
-			}
+func (l *listener) close() {
+	l.stop()
+	for l.state == closing {
+		if l.state == stopped {
+			break
 		}
 	}
-}
 
-func (l *listener) removeWorkers(n int) error {
-	if n > len(l.workers) {
-		return fmt.Errorf("stopNWorkers: given number of workers to shutdown is greater than current worker count")
-	}
-
-	for i := 0; i > n; i++ {
-		w := l.workers[len(l.workers)-1]
-		w.stop()
-		l.workers = l.workers[:len(l.workers)-1]
-		l.log.Println("removeNWorkers: stopped and removed the last worker from the workers' slice")
-	}
-
-	return nil
-}
-
-func (l *listener) addWorkers(n int) error {
-	// TODO: Add global option for maximum allowed worker count (buffered channel and resource limits)
-	if (len(l.workers) + n) >= 100 {
-		return fmt.Errorf("addNWorkers: requested amount of workers exceed the limit: %d workers", n)
-	}
-
-	for i := 0; i < n; i++ {
-		w := newWorker(l.jobsChan, l.log)
-		l.workers = append(l.workers, w)
-		go w.work()
-	}
-
-	return nil
+	close(l.wp.pool)
+	close(l.pauseChan)
+	close(l.stopChan)
 }
 
 func (l *listener) setWorkerCount(n int) error {
@@ -180,14 +134,20 @@ func (l *listener) setWorkerCount(n int) error {
 		return fmt.Errorf("setWorkerCount: given worker count cannot be negative")
 	}
 
-	target := n - len(l.workers)
-	if target < 0 {
-		return l.removeWorkers(-target)
+	if n == l.wp.count {
+		return nil
 	}
 
-	if target > 0 {
-		return l.addWorkers(target)
+	// TODO: below
+	l.pause()
+	for l.state == pausing {
+		if l.state == paused {
+			break
+		}
 	}
+
+	l.wp.close()
+	l.wp = newWorkerPool(n)
 
 	return nil
 }
