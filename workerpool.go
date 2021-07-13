@@ -41,10 +41,17 @@ func (wp *workerPool) get() workerFn {
 }
 
 func (wp *workerPool) put() {
+	// TODO: ugly. Deals if channel is closed on a concurrent goroutine after state control
+	defer func() {
+		if r := recover(); r != nil {
+			return
+		}
+	}()
+
+	// TODO: required?
 	if wp.state == wpClosing {
 		return
 	}
-	// FIXME: !!! Will panic if channel is closed right here. Recover?
 	wp.pool <- work
 }
 
