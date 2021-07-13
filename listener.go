@@ -30,7 +30,7 @@ const (
 	pausing
 	resuming
 	paused
-	closing
+	stopping
 	stopped
 )
 
@@ -112,13 +112,13 @@ func (l *listener) unpause() {
 }
 
 func (l *listener) stop() {
-	l.state = closing
+	l.state = stopping
 	l.stopChan <- struct{}{}
 }
 
 func (l *listener) close() {
 	l.stop()
-	for l.state == closing {
+	for l.state == stopping {
 		if l.state == stopped {
 			break
 		}
@@ -138,7 +138,6 @@ func (l *listener) setWorkerCount(n int) error {
 		return nil
 	}
 
-	// TODO: below
 	l.pause()
 	for l.state == pausing {
 		if l.state == paused {
@@ -148,6 +147,7 @@ func (l *listener) setWorkerCount(n int) error {
 
 	l.wp.close()
 	l.wp = newWorkerPool(n)
+	l.unpause()
 
 	return nil
 }
