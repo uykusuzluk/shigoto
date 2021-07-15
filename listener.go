@@ -15,8 +15,7 @@ type listener struct {
 	log       *log.Logger
 	taskboard TaskBoard
 
-	wp *workerPool
-	// TODO: turn it into a send-only channel?
+	wp        *workerPool
 	stopChan  chan struct{}
 	pauseChan chan struct{}
 }
@@ -92,8 +91,7 @@ func (l *listener) run() {
 	}
 	//l.log.Printf("unmarshaled to Job %+v", job)
 	l.log.Println("listen: sending job to worker channel... q: ", l.queue)
-	worker := l.wp.get()
-	go worker(job, l.log, l.wp)
+	go l.wp.get()(job, l.log, l.wp)
 	l.log.Println("listen: job sent to worker channel. q: ", l.queue)
 }
 
