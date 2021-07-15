@@ -31,9 +31,10 @@ const (
 	initializing listenerState = iota + 1
 	running
 	pausing
-	resuming
 	paused
-	closing
+	resuming
+	stopping
+	stopped
 )
 
 func newListener(queue string, wcount int, s *Shigoto) (*listener, error) {
@@ -62,6 +63,7 @@ func (l *listener) listen() {
 	for {
 		select {
 		case <-l.stopChan:
+			l.state = stopped
 			l.stopWorkers()
 			return
 		case <-l.pauseChan:
@@ -119,7 +121,7 @@ func (l *listener) unpause() {
 }
 
 func (l *listener) stop() {
-	l.state = closing
+	l.state = stopping
 	l.stopChan <- struct{}{}
 }
 
