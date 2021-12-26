@@ -75,7 +75,7 @@ func WithLogger(l *log.Logger) ShigotoOpts {
 	}
 }
 
-// Close closes necessary used resources to prevent memory leaks
+// Close used resources to prevent memory leaks
 func (s *Shigoto) Close() error {
 	s.stopListeners()
 	s.taskBoard.Close()
@@ -103,10 +103,12 @@ func (s *Shigoto) Queue(job QNameNewRunner) error {
 	return s.QueueTo(job, job.QName())
 }
 
+// QueueTo allows the queueing of a job to the desired queue name
 func (s *Shigoto) QueueTo(job NewRunner, queue string) error {
 	var (
 		payload []byte
 		err     error
+		jobForQ string
 	)
 
 	if pl, isJSONer := job.(JSONer); isJSONer {
@@ -119,14 +121,35 @@ func (s *Shigoto) QueueTo(job NewRunner, queue string) error {
 		return err
 	}
 
-	// TODO: instead of reflect use Identifier interface
-	jobForQ, err := newJob(payload, reflect.TypeOf(job).String(), queue)
+	if ident, isIdentifier := job.(Identifier); isIdentifier {
+		jobForQ, err = newJob(payload, ident.Identify(), queue)
+	} else {
+		jobForQ, err = newJob(payload, reflect.TypeOf(job).String(), queue)
+	}
+
 	if err != nil {
 		return err
 	}
 	s.taskBoard.Push(jobForQ, queue)
 
 	return nil
+}
+
+// Register adds a NewRunner type to the job container so that it can be processed by workers
+func (s *Shigoto) Register(j NewRunner) error {
+	if jobIDer, isIdentifier := j.(Identifier); isIdentifier {
+		s.registerAs(j, jobIDer.Identify())
+		return nil
+	}
+
+	s.registerAs(j, reflect.TypeOf(j).String())
+	return nil
+}
+
+// RegisterAs adds a NewRunner type to the job container so that it can be processed by workers
+func (s *Shigoto) registerAs(j NewRunner, payloadType string) {
+	s.log.Println("register: type of runner is: ", payloadType)
+	jobContainer[payloadType] = j
 }
 
 func (s *Shigoto) ListenQueue(queue string, workers int) error {
@@ -136,18 +159,5 @@ func (s *Shigoto) ListenQueue(queue string, workers int) error {
 	}
 	s.listeners = append(s.listeners, *listener)
 	go listener.listen()
-	return nil
-}
-
-func (s *Shigoto) Register(j NewRunner) error {
-	if jobIDer, isIdentifier := j.(Identifier); isIdentifier {
-		jobContainer[jobIDer.Identify()] = j
-		s.log.Println("register: type of runner is: ", jobIDer.Identify())
-		return nil
-	}
-
-	name := reflect.TypeOf(j).String()
-	s.log.Println("register: type of runner is: ", name)
-	jobContainer[name] = j
 	return nil
 }

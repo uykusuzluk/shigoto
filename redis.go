@@ -61,6 +61,5 @@ func (r *Redis) Pop(queue string) ([]byte, error) {
 
 // Close prepares the resource for termination without memory leaks
 func (r *Redis) Close() error {
-	r.redis.Close()
-	return nil
+	return r.redis.Close()
 }

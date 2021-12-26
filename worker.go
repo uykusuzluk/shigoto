@@ -41,7 +41,7 @@ func (w *Worker) work() {
 				continue
 			}
 
-			stale, err := job.Expired()
+			stale, err := job.expired()
 			if stale {
 				w.log.Println(err.Error())
 				continue

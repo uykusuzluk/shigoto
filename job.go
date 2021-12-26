@@ -15,22 +15,21 @@ const (
 
 // Job is the main struct that holds the payload to be queued
 type Job struct {
-	UUID string
-
+	UUID  string
 	QName string
+
+	Status  JobStatus
+	Attemps int
 
 	MaxAttemps  int
 	MaxRunTime  time.Duration
 	ExpireAfter time.Duration
-	Delay       time.Duration
+	// Delay       time.Duration
 
 	QueuedAt   time.Time
 	StartedAt  time.Time
-	FinishedAt time.Time
 	FailedAt   time.Time
-
-	Status  JobStatus
-	Attemps int
+	FinishedAt time.Time
 
 	PayloadType string
 	Payload     []byte
@@ -68,7 +67,7 @@ func newJob(payload []byte, ptype string, queue string) (string, error) {
 }
 
 // Expired returns true if the current time is later than the sum of job's queued time and expireAfter duration
-func (j *Job) Expired() (bool, error) {
+func (j *Job) expired() (bool, error) {
 	if j.ExpireAfter == 0 {
 		return false, nil
 	}

@@ -15,6 +15,13 @@ func (t *TestJob) Run() error {
     // ...
 }
 
+// jobmanager := shigoto.New()
+
+// jobmanager.Register(job)
+//           .RegisterAs(job, payloadType)
+//           .Queue(job)
+//           .QueueTo(job, qName)
+
 func main() {
     // Initialize Shigoto Job Manager
     manager := shigoto.New()
