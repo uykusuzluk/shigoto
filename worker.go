@@ -80,3 +80,6 @@ func (w *worker) stop() {
 func (w *worker) close() {
 	close(w.stopChan)
 }
+
+// TODO:
+// Stop Listener, Stop Workers, ReQueue leftovers inside JobChannel then stop
