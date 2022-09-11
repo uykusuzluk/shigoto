@@ -43,6 +43,8 @@ func newListener(queue string, wcount int, s *Shigoto) (*listener, error) {
 		taskboard: s.taskBoard,
 		queue:     queue,
 		state:     initializing,
+		pauseChan: make(chan struct{}),
+		stopChan:  make(chan struct{}),
 	}
 	l.init(wcount)
 	return l, nil
@@ -57,6 +59,18 @@ func (l *listener) init(wcount int) {
 		go w.work()
 	}
 	l.state = listening
+}
+
+func newListenerForWeaver(queue string, jobChan chan Job, s *Shigoto) (*listener, error) {
+	return &listener{
+		log:       s.log,
+		taskboard: s.taskBoard,
+		queue:     queue,
+		state:     initializing,
+		jobsChan:  make(chan Job),
+		pauseChan: make(chan struct{}),
+		stopChan:  make(chan struct{}),
+	}, nil
 }
 
 func (l *listener) listen() {
@@ -125,28 +139,6 @@ func (l *listener) stop() {
 	l.stopChan <- struct{}{}
 }
 
-func (l *listener) stopWorkers() {
-	for _, w := range l.workers {
-		w.stop()
-	}
-}
-
-// GracefulClose waits for the Job channel to empty or 3 minutes
-// (whichever comes first before sending back a message which
-// signals the channel can be closed.
-func (l *listener) waitGracefulClose() bool {
-	for {
-		select {
-		case <-time.After(2 * time.Minute):
-			return true
-		default:
-			if l.state != listening && len(l.jobsChan) == 0 {
-				return true
-			}
-		}
-	}
-}
-
 func (l *listener) removeWorkers(n int) error {
 	if n > len(l.workers) {
 		return fmt.Errorf("stopNWorkers: given number of workers to shutdown is greater than current worker count")
@@ -194,9 +186,38 @@ func (l *listener) setWorkerCount(n int) error {
 	return nil
 }
 
+func (l *listener) stopWorkers() {
+	if l.workers == nil {
+		return
+	}
+
+	for _, w := range l.workers {
+		w.stop()
+	}
+}
+
+// GracefulClose waits for the Job channel to empty or 3 minutes
+// (whichever comes first before sending back a message which
+// signals the channel can be closed.
+func (l *listener) gracefulClose() bool {
+	for {
+		select {
+		case <-time.After(2 * time.Minute):
+			return true
+		default:
+			if l.state != listening && len(l.jobsChan) == 0 {
+				return true
+			}
+		}
+	}
+}
+
 func (l *listener) close() {
 	l.stop()
-	l.waitGracefulClose()
+
+	if l.workers != nil {
+		l.gracefulClose()
+	}
 
 	close(l.jobsChan)
 	close(l.pauseChan)
