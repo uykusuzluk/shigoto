@@ -46,48 +46,6 @@ func (s *Shigoto) initialize() error {
 	return nil
 }
 
-// WithRedis sets the queue connection for Shigoto as Redis backend
-func WithRedis() ShigotoOpts {
-	return func(s *Shigoto) error {
-		s.taskBoard = &Redis{
-			Host:     "localhost",
-			Port:     "6379",
-			Password: "",
-			Database: 0,
-		}
-		return s.taskBoard.Initialize(s.log)
-	}
-}
-
-// WithTaskboard sets the taskboard with given backend compliant to the Taskboard interface
-func WithTaskboard(t TaskBoard) ShigotoOpts {
-	return func(s *Shigoto) error {
-		s.taskBoard = t
-		return s.taskBoard.Initialize(s.log)
-	}
-}
-
-// WithLogger sets the logger for Shigoto to the given *log.Logger
-func WithLogger(l *log.Logger) ShigotoOpts {
-	return func(s *Shigoto) error {
-		s.log = l
-		return nil
-	}
-}
-
-// Close used resources to prevent memory leaks
-func (s *Shigoto) Close() error {
-	s.stopListeners()
-	s.taskBoard.Close()
-	return nil
-}
-
-func (s *Shigoto) stopListeners() {
-	for _, l := range s.listeners {
-		l.stopChan <- struct{}{}
-	}
-}
-
 func (s *Shigoto) defaultLogger() {
 	s.log = log.New(os.Stdout, "shigoto ", log.LstdFlags)
 	s.log.Println("default logger set for shigoto!")
@@ -98,9 +56,15 @@ func (s *Shigoto) defaultTaskboard() error {
 	return redisOpt(s)
 }
 
+func (s *Shigoto) stopListeners() {
+	for _, l := range s.listeners {
+		l.close()
+	}
+}
+
 // Queue makes it possible to queue a job with implied default queue name from a QName() method
-func (s *Shigoto) Queue(job QNameNewRunner) error {
-	return s.QueueTo(job, job.QName())
+func (s *Shigoto) Queue(task Tasker) error {
+	return s.QueueTo(task, task.QName())
 }
 
 // QueueTo allows the queueing of a job to the desired queue name
@@ -111,8 +75,8 @@ func (s *Shigoto) QueueTo(job NewRunner, queue string) error {
 		jobForQ string
 	)
 
-	if pl, isJSONer := job.(JSONer); isJSONer {
-		payload, err = pl.JSON()
+	if pl, isMarshaler := job.(json.Marshaler); isMarshaler {
+		payload, err = pl.MarshalJSON()
 	} else {
 		payload, err = json.Marshal(job)
 	}
@@ -135,6 +99,16 @@ func (s *Shigoto) QueueTo(job NewRunner, queue string) error {
 	return nil
 }
 
+func (s *Shigoto) ListenQueue(queue string, workers int) error {
+	listener, err := newListener(queue, workers, s)
+	if err != nil {
+		return err
+	}
+	s.listeners = append(s.listeners, *listener)
+	go listener.listen()
+	return nil
+}
+
 // Register adds a NewRunner type to the job container so that it can be processed by workers
 func (s *Shigoto) Register(j NewRunner) error {
 	if jobIDer, isIdentifier := j.(Identifier); isIdentifier {
@@ -152,12 +126,9 @@ func (s *Shigoto) registerAs(j NewRunner, payloadType string) {
 	jobContainer[payloadType] = j
 }
 
-func (s *Shigoto) ListenQueue(queue string, workers int) error {
-	listener, err := newListener(queue, workers, s)
-	if err != nil {
-		return err
-	}
-	s.listeners = append(s.listeners, *listener)
-	go listener.listen()
+// Close used resources to prevent memory leaks
+func (s *Shigoto) Close() error {
+	s.stopListeners()
+	s.taskBoard.Close()
 	return nil
 }

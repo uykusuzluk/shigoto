@@ -66,15 +66,20 @@ func newJob(payload []byte, ptype string, queue string) (string, error) {
 	return string(jobJSON), nil
 }
 
+func (j *Job) start() {
+	j.Attemps++
+	j.StartedAt = time.Now().UTC()
+}
+
 // Expired returns true if the current time is later than the sum of job's queued time and expireAfter duration
-func (j *Job) expired() (bool, error) {
+func (j *Job) expired() error {
 	if j.ExpireAfter == 0 {
-		return false, nil
+		return nil
 	}
 	if time.Now().After(j.QueuedAt.Local().Add(j.ExpireAfter)) {
-		return true, j.failExpired()
+		return j.failExpired()
 	}
-	return false, nil
+	return nil
 }
 
 // FailExpired method is called when the job has expired.
@@ -94,13 +99,13 @@ func (j *Job) failWithMsg(msg string) error {
 	return fmt.Errorf(msg)
 }
 
-func (j *Job) checkPayload() (bool, error) {
+func (j *Job) checkPayload() error {
 	if j.ErrCheck == 0 {
-		return true, nil
+		return nil
 	}
 	if j.ErrCheck == crc32.ChecksumIEEE([]byte(j.Payload)) {
-		return true, nil
+		return nil
 	}
 
-	return false, j.failChecksum()
+	return j.failChecksum()
 }

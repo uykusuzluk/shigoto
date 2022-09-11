@@ -29,7 +29,7 @@ type listenerState int
 // States defined for the status of Listener
 const (
 	initializing listenerState = iota + 1
-	running
+	listening
 	pausing
 	paused
 	resuming
@@ -56,7 +56,7 @@ func (l *listener) init(wcount int) {
 		l.workers = append(l.workers, w)
 		go w.work()
 	}
-	l.state = running
+	l.state = listening
 }
 
 func (l *listener) listen() {
@@ -73,11 +73,11 @@ func (l *listener) listen() {
 			}
 
 			if l.state == resuming {
-				l.state = running
+				l.state = listening
 				continue
 			}
 		default:
-			if l.state != running {
+			if l.state != listening {
 				continue
 			}
 
@@ -107,7 +107,7 @@ func (l *listener) run() {
 }
 
 func (l *listener) pause() {
-	if l.state == running {
+	if l.state == listening {
 		l.state = pausing
 		l.pauseChan <- struct{}{}
 	}
@@ -140,7 +140,7 @@ func (l *listener) waitGracefulClose() bool {
 		case <-time.After(2 * time.Minute):
 			return true
 		default:
-			if l.state != running && len(l.jobsChan) == 0 {
+			if l.state != listening && len(l.jobsChan) == 0 {
 				return true
 			}
 		}
@@ -192,4 +192,13 @@ func (l *listener) setWorkerCount(n int) error {
 	}
 
 	return nil
+}
+
+func (l *listener) close() {
+	l.stop()
+	l.waitGracefulClose()
+
+	close(l.jobsChan)
+	close(l.pauseChan)
+	close(l.stopChan)
 }

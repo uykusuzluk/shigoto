@@ -3,7 +3,6 @@ package shigoto
 import (
 	"encoding/json"
 	"log"
-	"time"
 )
 
 // Worker is the responsible for reading jobs sent by the Listener and starting their Run() methods
@@ -15,18 +14,16 @@ type Worker struct {
 
 // NewWorker is the pseudo-constructor of Worker struct
 func newWorker(jobChan <-chan Job, l *log.Logger) *Worker {
-	w := &Worker{log: l}
-	w.initialize(jobChan)
-	return w
-}
-
-func (w *Worker) initialize(jobChan <-chan Job) {
-	w.jobchan = jobChan
-	w.stopChan = make(chan struct{})
+	return &Worker{
+		log:      l,
+		jobchan:  jobChan,
+		stopChan: make(chan struct{}),
+	}
 }
 
 // Work is the main method of the Worker which will run concurrently
 func (w *Worker) work() {
+	defer w.close()
 	for {
 		select {
 		case <-w.stopChan:
@@ -35,21 +32,20 @@ func (w *Worker) work() {
 		case job := <-w.jobchan:
 			w.log.Println("worker work: job received...")
 
-			correct, err := job.checkPayload()
-			if !correct {
+			err := job.checkPayload()
+			if err != nil {
 				w.log.Println(err.Error())
 				continue
 			}
 
-			stale, err := job.expired()
-			if stale {
+			err = job.expired()
+			if err != nil {
 				w.log.Println(err.Error())
 				continue
 			}
 
 			w.log.Println("worker work: job ID: ", job.UUID, " will be serialized and run.")
-			job.Attemps++
-			job.StartedAt = time.Now().UTC()
+			job.start()
 
 			objBlueprint := jobContainer[job.PayloadType]
 			newObj, err := objBlueprint.New()
@@ -66,6 +62,7 @@ func (w *Worker) work() {
 			if err != nil {
 				w.log.Printf("Job with ID: %s has failed. Job: %+v", job.UUID, job)
 				// TODO: Fail job stuff (check attemps left, requeue, make failed_jobs db etc...)
+				// TODO: If attempts > tries requeue; else fail -> log, db, taskboard reporting
 			}
 
 			w.log.Println("worker work: job ran successfully.")
@@ -77,4 +74,9 @@ func (w *Worker) work() {
 func (w *Worker) stop() {
 	w.jobchan = nil
 	w.stopChan <- struct{}{}
+}
+
+// Close method for cleaning up a Worker
+func (w *Worker) close() {
+	close(w.stopChan)
 }
