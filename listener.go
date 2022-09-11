@@ -16,7 +16,7 @@ type listener struct {
 	log       *log.Logger
 	taskboard TaskBoard
 
-	workers []*Worker
+	workers []*worker
 
 	// TODO: turn it into a send-only channel?
 	jobsChan  chan Job

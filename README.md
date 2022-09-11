@@ -15,7 +15,9 @@ func (t *TestJob) Run() error {
     // ...
 }
 
-// jobmanager := shigoto.New()
+func (t *TestJob) New() (shigoto.Runner, error) {
+    return new(TestJob) // &TestJob{}
+}
 
 // jobmanager.Register(job)
 //           .RegisterAs(job, payloadType)
@@ -24,20 +26,20 @@ func (t *TestJob) Run() error {
 
 func main() {
     // Initialize Shigoto Job Manager
-    manager := shigoto.New()
+    jm := shigoto.New()
 
     // Queue a job
-    job1 := TestJob{
+    j := TestJob{
         Name: "test job",
         Value: 12345,
     }
-    manager.QueueTo(&job1, "testjob_queue")
+    jm.QueueTo(&job1, "testjob_queue")
 
     // Register a struct as a runnable Job
-    manager.Register(&TestJob{})
+    jm.Register(&TestJob{})
 
     // Run job workers by creating Listeners
-    manager.ListenQueue("testjob_queue", 2)
+    jm.ListenQueue("testjob_queue", 2)
 }
 ```
 ### TODO:  

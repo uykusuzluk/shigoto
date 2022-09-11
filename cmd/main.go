@@ -21,7 +21,7 @@ type %s struct {
 	// TODO: Add necessary members
 }
 
-func (t *%s) New() (*shigoto.Runner, error) {
+func (t *%s) New() (shigoto.Runner, error) {
 	return new (%s), nil
 }
 

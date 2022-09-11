@@ -6,15 +6,15 @@ import (
 )
 
 // Worker is the responsible for reading jobs sent by the Listener and starting their Run() methods
-type Worker struct {
+type worker struct {
 	log      *log.Logger
 	jobchan  <-chan Job
 	stopChan chan struct{}
 }
 
 // NewWorker is the pseudo-constructor of Worker struct
-func newWorker(jobChan <-chan Job, l *log.Logger) *Worker {
-	return &Worker{
+func newWorker(jobChan <-chan Job, l *log.Logger) *worker {
+	return &worker{
 		log:      l,
 		jobchan:  jobChan,
 		stopChan: make(chan struct{}),
@@ -22,7 +22,7 @@ func newWorker(jobChan <-chan Job, l *log.Logger) *Worker {
 }
 
 // Work is the main method of the Worker which will run concurrently
-func (w *Worker) work() {
+func (w *worker) work() {
 	defer w.close()
 	for {
 		select {
@@ -71,12 +71,12 @@ func (w *Worker) work() {
 }
 
 // Stop method is called to kill a running Worker
-func (w *Worker) stop() {
+func (w *worker) stop() {
 	w.jobchan = nil
 	w.stopChan <- struct{}{}
 }
 
 // Close method for cleaning up a Worker
-func (w *Worker) close() {
+func (w *worker) close() {
 	close(w.stopChan)
 }
