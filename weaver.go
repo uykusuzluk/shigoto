@@ -7,6 +7,5 @@ type weaver struct {
 }
 
 func newWeaver(s *Shigoto, wcount int, queue ...string) (*weaver, error) {
-
 	return nil, nil
 }

@@ -41,7 +41,7 @@ func (r *Redis) connect() error {
 }
 
 // Push method adds a job to the right end (tail) of the named redis list (queue)
-func (r *Redis) Push(job string, queue string) error {
+func (r *Redis) QWrite(job string, queue string) error {
 	cmd := r.redis.RPush(queue, job)
 	if cmd.Err() != nil {
 		return cmd.Err()
@@ -51,7 +51,7 @@ func (r *Redis) Push(job string, queue string) error {
 
 // Pop method remove a job from the left end (head) of the named redis list (queue) for processing.
 // For redis a blocking function is used on a single listening edge point for a queue name.
-func (r *Redis) Pop(queue string) ([]byte, error) {
+func (r *Redis) QRead(queue string) ([]byte, error) {
 	listElement := r.redis.BLPop(0, queue)
 	if listElement.Err() != nil {
 		return nil, listElement.Err()

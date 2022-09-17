@@ -94,7 +94,7 @@ func (s *Shigoto) QueueTo(job NewRunner, queue string) error {
 	if err != nil {
 		return err
 	}
-	s.taskBoard.Push(jobForQ, queue)
+	s.taskBoard.QWrite(jobForQ, queue)
 
 	return nil
 }
